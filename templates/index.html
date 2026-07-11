@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام تسجيل حضور الصلوات</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i class="fas fa-mosque"></i>
+                    <span>حضور الصلوات</span>
+                </div>
+                <button class="sidebar-toggle" id="sidebarToggle">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-page="dashboard">
+                    <i class="fas fa-home"></i>
+                    <span>الرئيسية</span>
+                </a>
+                <a href="#" class="nav-item" data-page="scanner">
+                    <i class="fas fa-qrcode"></i>
+                    <span>مسح الباركود</span>
+                </a>
+                <a href="#" class="nav-item" data-page="students">
+                    <i class="fas fa-users"></i>
+                    <span>الطلبة</span>
+                </a>
+                <a href="#" class="nav-item" data-page="attendance">
+                    <i class="fas fa-clipboard-check"></i>
+                    <span>سجل الحضور</span>
+                </a>
+                <a href="#" class="nav-item" data-page="reports">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>التقارير</span>
+                </a>
+                <a href="#" class="nav-item" data-page="settings">
+                    <i class="fas fa-cog"></i>
+                    <span>الإعدادات</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="current-time" id="currentTime"></div>
+                <div class="current-prayer" id="currentPrayer"></div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="top-header">
+                <button class="mobile-menu-btn" id="mobileMenuBtn">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <div class="header-title" id="headerTitle">الرئيسية</div>
+                <div class="header-actions">
+                    <div class="live-clock" id="liveClock"></div>
+                </div>
+            </header>
+
+            <!-- Pages Container -->
+            <div class="pages-container">
+
+                <!-- Dashboard Page -->
+                <div class="page active" id="page-dashboard">
+                    <div class="stats-grid">
+                        <div class="stat-card green">
+                            <div class="stat-icon"><i class="fas fa-users"></i></div>
+                            <div class="stat-info">
+                                <div class="stat-number" id="totalStudents">0</div>
+                                <div class="stat-label">إجمالي الطلبة</div>
+                            </div>
+                        </div>
+                        <div class="stat-card blue">
+                            <div class="stat-icon"><i class="fas fa-user-check"></i></div>
+                            <div class="stat-info">
+                                <div class="stat-number" id="todayPresent">0</div>
+                                <div class="stat-label">حاضرون اليوم</div>
+                            </div>
+                        </div>
+                        <div class="stat-card orange">
+                            <div class="stat-icon"><i class="fas fa-user-times"></i></div>
+                            <div class="stat-info">
+                                <div class="stat-number" id="todayAbsent">0</div>
+                                <div class="stat-label">غائبون اليوم</div>
+                            </div>
+                        </div>
+                        <div class="stat-card red">
+                            <div class="stat-icon"><i class="fas fa-percentage"></i></div>
+                            <div class="stat-info">
+                                <div class="stat-number" id="attendanceRate">0%</div>
+                                <div class="stat-label">نسبة الحضور</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-grid">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-chart-pie"></i> نسبة الحضور اليوم</h3>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="dashboardChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-clock"></i> الصلوات الخمس</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="prayers-list" id="dashboardPrayers"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-history"></i> آخر عمليات الحضور</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-container">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>الطالب</th>
+                                            <th>الصف</th>
+                                            <th>الصلاة</th>
+                                            <th>الوقت</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="recentAttendance"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Scanner Page -->
+                <div class="page" id="page-scanner">
+                    <div class="scanner-container">
+                        <div class="card scanner-card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-qrcode"></i> مسح باركود الطالب</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="scanner-wrapper">
+                                    <div id="qr-reader"></div>
+                                    <div class="scanner-overlay">
+                                        <div class="scanner-frame">
+                                            <div class="corner top-left"></div>
+                                            <div class="corner top-right"></div>
+                                            <div class="corner bottom-left"></div>
+                                            <div class="corner bottom-right"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="scanner-status" id="scannerStatus">
+                                    <i class="fas fa-camera"></i>
+                                    <span>اضغط لبدء المسح</span>
+                                </div>
+                                <div class="scanner-controls">
+                                    <button class="btn btn-primary btn-lg" id="startScanBtn">
+                                        <i class="fas fa-play"></i> بدء المسح
+                                    </button>
+                                    <button class="btn btn-danger btn-lg" id="stopScanBtn" style="display:none">
+                                        <i class="fas fa-stop"></i> إيقاف المسح
+                                    </button>
+                                </div>
+                                <div class="manual-input">
+                                    <input type="text" id="manualBarcode" placeholder="أدخل الباركود يدوياً..." class="input-field">
+                                    <button class="btn btn-secondary" id="manualSubmit">
+                                        <i class="fas fa-paper-plane"></i> تسجيل
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card result-card" id="scanResult" style="display:none">
+                            <div class="card-body">
+                                <div class="result-content">
+                                    <div class="result-icon" id="resultIcon">
+                                        <i class="fas fa-check-circle"></i>
+                                    </div>
+                                    <div class="result-info">
+                                        <div class="result-name" id="resultName"></div>
+                                        <div class="result-prayer" id="resultPrayer"></div>
+                                        <div class="result-time" id="resultTime"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card error-card" id="scanError" style="display:none">
+                            <div class="card-body">
+                                <div class="result-content error">
+                                    <div class="result-icon error">
+                                        <i class="fas fa-times-circle"></i>
+                                    </div>
+                                    <div class="result-info">
+                                        <div class="result-error" id="resultError"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-list"></i> آخر عمليات المسح</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="recent-scans" id="recentScans">
+                                    <div class="empty-state">
+                                        <i class="fas fa-barcode"></i>
+                                        <p>لم يتم مسح أي باركود بعد</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Students Page -->
+                <div class="page" id="page-students">
+                    <div class="page-actions">
+                        <button class="btn btn-primary" id="addStudentBtn">
+                            <i class="fas fa-plus"></i> إضافة طالب
+                        </button>
+                        <button class="btn btn-secondary" id="importStudentsBtn">
+                            <i class="fas fa-file-import"></i> استيراد من Excel
+                        </button>
+                        <input type="file" id="importFileInput" accept=".xlsx,.csv" style="display:none">
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="search-box">
+                                <i class="fas fa-search"></i>
+                                <input type="text" id="studentSearch" placeholder="بحث بالاسم أو الباركود أو الصف...">
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-container">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>الاسم</th>
+                                            <th>الباركود</th>
+                                            <th>الصف</th>
+                                            <th>هاتف الطالب</th>
+                                            <th>هاتف ولي الأمر</th>
+                                            <th>الإجراءات</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="studentsTable"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Attendance Page -->
+                <div class="page" id="page-attendance">
+                    <div class="page-actions">
+                        <div class="filter-group">
+                            <input type="date" id="attendanceDate" class="input-field">
+                            <select id="attendancePrayer" class="input-field">
+                                <option value="">جميع الصلوات</option>
+                            </select>
+                        </div>
+                        <div class="tab-buttons">
+                            <button class="tab-btn active" data-tab="present">
+                                <i class="fas fa-user-check"></i> الحاضرون
+                            </button>
+                            <button class="tab-btn" data-tab="absent">
+                                <i class="fas fa-user-times"></i> الغائبون
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="table-container">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr id="attendanceTableHead">
+                                            <th>#</th>
+                                            <th>الاسم</th>
+                                            <th>الصف</th>
+                                            <th>الصلاة</th>
+                                            <th>الوقت</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="attendanceTable"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Reports Page -->
+                <div class="page" id="page-reports">
+                    <div class="page-actions">
+                        <button class="btn btn-primary" id="exportPdfBtn">
+                            <i class="fas fa-file-pdf"></i> تصدير PDF
+                        </button>
+                        <button class="btn btn-success" id="exportExcelBtn">
+                            <i class="fas fa-file-excel"></i> تصدير Excel
+                        </button>
+                    </div>
+
+                    <div class="dashboard-grid">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-chart-bar"></i> الحضور حسب الصلاة</h3>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="prayerChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-chart-line"></i> الحضور الأسبوعي</h3>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="weeklyChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-exclamation-triangle"></i> أكثر الطلبة غياباً (آخر 30 يوم)</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-container">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>الاسم</th>
+                                            <th>الصف</th>
+                                            <th>أيام الحضور</th>
+                                            <th>نسبة الحضور</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="topAbsentTable"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Settings Page -->
+                <div class="page" id="page-settings">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-clock"></i> أوقات الصلوات</h3>
+                            <button class="btn btn-primary btn-sm" id="addPrayerBtn">
+                                <i class="fas fa-plus"></i> إضافة صلاة
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-container">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>اسم الصلاة</th>
+                                            <th>وقت البداية</th>
+                                            <th>وقت النهاية</th>
+                                            <th>الحالة</th>
+                                            <th>الإجراءات</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="prayersTable"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-database"></i> إدارة البيانات</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="settings-actions">
+                                <button class="btn btn-danger" id="clearAttendanceBtn">
+                                    <i class="fas fa-trash"></i> مسح سجل الحضور
+                                </button>
+                                <button class="btn btn-warning" id="backupDbBtn">
+                                    <i class="fas fa-download"></i> نسخ احتياطي
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal" id="modal">
+            <div class="modal-header">
+                <h3 id="modalTitle">العنوان</h3>
+                <button class="modal-close" id="modalClose">&times;</button>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+            <div class="modal-footer" id="modalFooter"></div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Audio for scan confirmation -->
+    <audio id="scanSound" preload="auto">
+        <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACAf39/f3+AgICAgICBgYGBgYGBgoKCgoKCg4OEhISEhIWFhYaGhoaGh4eHh4eHiIiIiIiIiYmJiYmJi4uLi4uLjIyMjIyMjY2NjY2Njo6Ojo6Oj4+Pj4+PkZGRkZGRkpKSkpKSk5OTk5OTlJSUlJSUk5SUlJSEhISEhISDhISEhIODhISEhIODhISEg4ODhISDhISEg4OEhISDhISEhIODhISEhISEhISDhISEhISEhISDg4OEhISEhISEhISDhISEhISEhISDhISEhISEhISDhISEhISEhISDhISEhISE" type="audio/wav">
+    </audio>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
