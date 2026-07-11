@@ -1,5 +1,3 @@
-__pycache__/
-*.pyc
-data/attendance.db
-*.db
+.DS_Store
 .env
+*.log
